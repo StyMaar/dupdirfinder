@@ -3,6 +3,7 @@ extern crate clap;
 extern crate walkdir;
 extern crate blake2;
 extern crate byteorder;
+extern crate unbytify;
 
 use std::path::PathBuf;
 
@@ -32,6 +33,7 @@ struct DirectoryData {
     path: PathBuf,
     children_hashes: Vec<FileHash>,
     descendant_number: u64,
+    disk_size: u64,
 }
 
 impl fmt::Debug for FileHash {
@@ -87,6 +89,7 @@ fn crawl_directory(root: PathBuf, map: &mut HashMap<FileHash, Vec<Rc<DirectoryDa
         path: root,
         children_hashes: Vec::new(),
         descendant_number: files_paths.len() as u64,
+        disk_size: 0,
     };
 
     for dir_path in subdir_paths {
@@ -94,11 +97,14 @@ fn crawl_directory(root: PathBuf, map: &mut HashMap<FileHash, Vec<Rc<DirectoryDa
         let hash = subdir_data.hash();
         dir_data.children_hashes.push(hash);
         dir_data.descendant_number += 1 + subdir_data.descendant_number;
+        dir_data.disk_size += subdir_data.disk_size;
     }
 
     for file_path in files_paths {
         let hash = hash_file_metadata(&file_path);
         dir_data.children_hashes.push(hash);
+        let size = fs::metadata(&file_path).expect(&format!("impossible to access metadata at path: {:?}", file_path)).len();
+        dir_data.disk_size += size;
     }
 
     let rc_dir_data = Rc::new(dir_data);
@@ -108,7 +114,7 @@ fn crawl_directory(root: PathBuf, map: &mut HashMap<FileHash, Vec<Rc<DirectoryDa
     rc_dir_data
 }
 
-fn list_duplicates(map: HashMap<FileHash, Vec<Rc<DirectoryData>>>) -> Vec<Vec<Rc<DirectoryData>>> {
+fn list_duplicates(map: HashMap<FileHash, Vec<Rc<DirectoryData>>>, min_size :u64) -> Vec<Vec<Rc<DirectoryData>>> {
     let mut result = vec![];
 
     let mut already_found_hashes : HashMap<FileHash, usize> = HashMap::new();
@@ -147,7 +153,7 @@ fn list_duplicates(map: HashMap<FileHash, Vec<Rc<DirectoryData>>>) -> Vec<Vec<Rc
                 let num = entry.or_insert(0);
                 *num += value.len();
             }
-            if first_dir_data.descendant_number == 0 {
+            if first_dir_data.descendant_number == 0 || first_dir_data.disk_size < min_size{
                 add_to_result = false;
             }
         }
@@ -187,15 +193,23 @@ fn check_inode(_: &mut HashSet<u64>, _: &DirEntry) -> bool {
     true
 }
 
+fn validate_byte_size(s: String) -> Result<(), String> {
+    unbytify::unbytify(&s).map(|_| ()).map_err(
+        |_| format!("{:?} is not a byte size", s))
+}
+
 fn main() {
     let args = clap_app!(dupdirfinder =>
         (version: crate_version!())
         (author: "Kevin Canévet, 2017")
         (about: "A duplicate directory finder.")
+        (@arg minsize: -m [MINSIZE] default_value("1") validator(validate_byte_size)
+         "Minimum file size to consider")
         (@arg root: +required +multiple "Root directory or directories to search.")
     ).get_matches();
 
     let roots = args.values_of("root").unwrap();
+    let minsize = unbytify::unbytify(args.value_of("minsize").unwrap()).unwrap();
 
     // We take care to avoid visiting a single inode twice,
     // which takes care of (false positive) hardlinks.
@@ -209,13 +223,18 @@ fn main() {
         let mut map = HashMap::new();
         let root = PathBuf::from(root);
         crawl_directory(root, &mut map, &mut inodes);
-        let duplicates = list_duplicates(map);
+        let duplicates = list_duplicates(map, minsize);
 
         for duplicate in duplicates {
             println!("Duplicat de {:?} répertoires", duplicate.len());
+            let duplicate_size = duplicate.get(0).expect("yet another expectation not met").disk_size;
+            let space_wasted = (duplicate.len() - 1 ) as u64 * duplicate_size;
+            let (val, suffix) = unbytify::bytify(space_wasted);
+            println!("    Space wasted {:.1} {}", val, suffix);
             for dir in duplicate {
                 println!("{:?}", dir.path);
             }
+
             println!("");
         }
         println!("");

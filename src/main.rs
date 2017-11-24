@@ -210,7 +210,7 @@ fn check_inode(_: &mut HashSet<u64>, _: &DirEntry) -> bool {
 }
 
 fn main() {
-    let args = clap_app!(fddf =>
+    let args = clap_app!(dupdirfinder =>
         (version: crate_version!())
         (author: "Kevin Canévet, 2017")
         (about: "A duplicate directory finder.")

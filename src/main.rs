@@ -2,6 +2,7 @@
 extern crate clap;
 extern crate walkdir;
 extern crate blake2;
+extern crate byteorder;
 
 use std::fs::File;
 use std::io::{self, Read, Seek, SeekFrom};
@@ -17,6 +18,13 @@ use std::collections::hash_map::Entry::Occupied;
 
 use std::rc::Rc;
 use std::fmt;
+use std::fs;
+use std::ffi::OsStr;
+
+use std::os::unix::ffi::OsStrExt;
+
+use byteorder::{LittleEndian, WriteBytesExt};
+
 
 #[derive(PartialEq ,Eq, Hash, Clone)]
 struct FileHash(Vec<u8>);
@@ -94,7 +102,7 @@ fn crawl_directory(root: PathBuf, map: &mut HashMap<FileHash, Vec<Rc<DirectoryDa
     }
 
     for file_path in files_paths {
-        let hash = hash_file_inner(&file_path).unwrap();
+        let hash = hash_file_metadata(&file_path);
         dir_data.children_hashes.push(hash);
     }
 
@@ -173,6 +181,23 @@ fn hash_file_inner(path: &PathBuf) -> io::Result<FileHash> {
         fp.seek(SeekFrom::Current(GAPSIZE))?;
     }
     Ok(FileHash(digest.result().to_vec()))
+}
+
+fn hash_file_metadata(path: &PathBuf) -> FileHash {
+    //hash file name
+    let file_name = path.file_name();
+    let mut digest = Blake2b::default();
+    digest.input(file_name.unwrap_or_else(||{
+        eprintln!("No filename at path: {:?}",path );
+        OsStr::new("no file name")
+    }).as_bytes());
+
+    let size = fs::metadata(path).expect(&format!("impossible to access metadata at path: {:?}", path)).len();
+    let mut wtr = vec![];
+    wtr.write_u64::<LittleEndian>(size).expect(&format!("failed to transform size {:?} to &[u8] at path: {:?}", size, path));
+    digest.input(&wtr);
+
+    FileHash(digest.result().to_vec())
 }
 
 #[cfg(unix)]

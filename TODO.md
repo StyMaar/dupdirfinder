@@ -1,7 +1,6 @@
 # Todo list:
 
 ## Performance:
-- check only file metadata (file name & size)
 - add multi-treading for faster processing
 
 ## Accuracy

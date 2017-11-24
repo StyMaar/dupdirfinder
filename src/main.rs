@@ -122,8 +122,8 @@ fn list_duplicates(map: HashMap<FileHash, Vec<Rc<DirectoryData>>>) -> Vec<Vec<Rc
     let mut vect_of_key_and_entries  = map.into_iter().collect::<Vec<_>>();
 
     vect_of_key_and_entries.sort_unstable_by(|a, b| {
-        let first_element_of_a = a.1.get(0).unwrap(); // the vectors are never empty
-        let first_element_of_b = b.1.get(0).unwrap(); // the vectors are never empty
+        let first_element_of_a = a.1.get(0).expect("empty vector that should not be empty at line 138"); // the vectors are never empty
+        let first_element_of_b = b.1.get(0).expect("empty vector that should not be empty at line 139"); // the vectors are never empty
         first_element_of_b.descendant_number.cmp(&first_element_of_a.descendant_number)
     });
 
@@ -147,7 +147,7 @@ fn list_duplicates(map: HashMap<FileHash, Vec<Rc<DirectoryData>>>) -> Vec<Vec<Rc
         // ou bien apparaissent dans le set en quantité inférieure à leur nombre d'occurence, ce qui veut dire qu'il existe un doublons en dehors des dossiers déjà traités
         // on les ajoute à la liste des résultats, et on met tous leurs enfants dans le set
         {
-            let first_dir_data = value.get(0).unwrap();
+            let first_dir_data = value.get(0).expect("empty vector that should not be empty at line 163");
             for children_hash in &(first_dir_data.children_hashes) {
                 let mut entry = already_found_hashes.entry(children_hash.clone());
                 let num = entry.or_insert(0);

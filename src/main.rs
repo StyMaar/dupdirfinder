@@ -7,9 +7,9 @@ use std::fs::File;
 use std::io::{self, Read, Seek, SeekFrom};
 use std::path::PathBuf;
 
-use std::collections::{HashMap};
+use std::collections::{HashMap, HashSet};
 use blake2::{Blake2b, Digest};
-use walkdir::{WalkDir};
+use walkdir::{WalkDir, DirEntry};
 
 use std::ops::Deref;
 
@@ -53,7 +53,7 @@ impl DirectoryData {
     }
 }
 
-fn crawl_directory(root: PathBuf, map: &mut HashMap<FileHash, Vec<Rc<DirectoryData>>>) -> Rc<DirectoryData> {
+fn crawl_directory(root: PathBuf, map: &mut HashMap<FileHash, Vec<Rc<DirectoryData>>>, inodes : &mut HashSet<u64>) -> Rc<DirectoryData> {
     let mut subdir_paths = Vec::new();
     let mut files_paths = Vec::new();
     for dir_entry_result in WalkDir::new(&root).follow_links(false).max_depth(1) {
@@ -66,7 +66,9 @@ fn crawl_directory(root: PathBuf, map: &mut HashMap<FileHash, Vec<Rc<DirectoryDa
                 if dir_entry.file_type().is_file() {
                     files_paths.push(path);
                 } else if dir_entry.file_type().is_dir() {
-                    subdir_paths.push(path);
+                    if check_inode(inodes, &dir_entry) {
+                        subdir_paths.push(path);
+                    }
                 }
             }
             Err(e) => {
@@ -85,7 +87,7 @@ fn crawl_directory(root: PathBuf, map: &mut HashMap<FileHash, Vec<Rc<DirectoryDa
     let children_dir_count = subdir_paths.len();
 
     for dir_path in subdir_paths {
-        let subdir_data = crawl_directory(dir_path, map);
+        let subdir_data = crawl_directory(dir_path, map, inodes);
         let hash = subdir_data.hash();
         dir_data.children_hashes.push(hash);
         dir_data.descendant_number += 1 + subdir_data.descendant_number;
@@ -173,6 +175,14 @@ fn hash_file_inner(path: &PathBuf) -> io::Result<FileHash> {
     Ok(FileHash(digest.result().to_vec()))
 }
 
+#[cfg(unix)]
+fn check_inode(set: &mut HashSet<u64>, entry: &DirEntry) -> bool {
+    set.insert(entry.ino())
+}
+#[cfg(not(unix))]
+fn check_inode(_: &mut HashSet<u64>, _: &DirEntry) -> bool {
+    true
+}
 
 fn main() {
     let args = clap_app!(fddf =>
@@ -184,13 +194,18 @@ fn main() {
 
     let roots = args.values_of("root").unwrap();
 
+    // We take care to avoid visiting a single inode twice,
+    // which takes care of (false positive) hardlinks.
+    let mut inodes = HashSet::default();
+
+
     for root in roots {
         println!("Checking {} directory", root);
         println!("");
 
         let mut map = HashMap::new();
         let root = PathBuf::from(root);
-        crawl_directory(root, &mut map);
+        crawl_directory(root, &mut map, &mut inodes);
         let duplicates = list_duplicates(map);
 
         for duplicate in duplicates {

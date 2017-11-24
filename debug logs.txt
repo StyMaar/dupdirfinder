@@ -1,0 +1,142 @@
+Result Map {
+FileHash [22, 33, 101, 136, 78]: [
+  DirectoryData { path: "expérimentation",
+    children_hashes: [
+      FileHash [57, 53, 163, 83, 214],
+      FileHash [208, 111, 149, 161, 223],
+      FileHash [19, 84, 162, 236, 44],
+      FileHash [21, 67, 166, 247, 45],
+      FileHash [194, 8, 48, 131, 94],
+      FileHash [194, 8, 48, 131, 94]
+    ],
+    descendant_number: 43
+  }
+],
+FileHash [57, 53, 163, 83, 214]: [
+  DirectoryData {
+    path: "expérimentation/nouveau dossier",
+    children_hashes: [
+      FileHash [250, 32, 254, 63, 196],
+      FileHash [208, 111, 149, 161, 223],
+      FileHash [208, 111, 149, 161, 223],
+      FileHash [194, 8, 48, 131, 94],
+      FileHash [21, 67, 166, 247, 45],
+      FileHash [194, 8, 48, 131, 94]
+    ],
+    descendant_number: 19
+  }
+],
+FileHash [19, 84, 162, 236, 44]: [
+  DirectoryData {
+  path: "expérimentation/nouveau dossier2",
+  children_hashes: [
+    FileHash [250, 32, 254, 63, 196],
+    FileHash [208, 111, 149, 161, 223],
+    FileHash [194, 8, 48, 131, 94],
+    FileHash [21, 67, 166, 247, 45],
+    FileHash [194, 8, 48, 131, 94]
+  ],
+  descendant_number: 13 }
+],
+FileHash [208, 111, 149, 161, 223]: [
+  DirectoryData {
+    path: "expérimentation/nouveau dossier/media",
+    children_hashes: [
+      FileHash [228, 82, 167, 158, 166],
+      FileHash [59, 29, 177, 129, 217],
+      FileHash [104, 168, 76, 214, 219]
+    ],
+    descendant_number: 5
+  },
+  DirectoryData {
+    path: "expérimentation/nouveau dossier/median",
+    children_hashes: [
+      FileHash [228, 82, 167, 158, 166],
+      FileHash [59, 29, 177, 129, 217],
+      FileHash [104, 168, 76, 214, 219]
+    ],
+    descendant_number: 5
+  },
+  DirectoryData {
+    path: "expérimentation/media",
+    children_hashes: [
+      FileHash [228, 82, 167, 158, 166],
+      FileHash [59, 29, 177, 129, 217],
+      FileHash [104, 168, 76, 214, 219]
+    ],
+    descendant_number: 5
+  },
+  DirectoryData {
+    path: "expérimentation/nouveau dossier2/median",
+    children_hashes: [
+      FileHash [228, 82, 167, 158, 166],
+      FileHash [59, 29, 177, 129, 217],
+      FileHash [104, 168, 76, 214, 219]
+    ],
+    descendant_number: 5
+  }
+],
+FileHash [250, 32, 254, 63, 196]: [
+  DirectoryData {
+    path: "expérimentation/nouveau dossier/nouveau dossier",
+    children_hashes: [
+      FileHash [194, 8, 48, 131, 94],
+      FileHash [21, 67, 166, 247, 45],
+      FileHash [194, 8, 48, 131, 94]
+    ],
+    descendant_number: 3
+  },
+  DirectoryData {
+    path: "expérimentation/nouveau dossier2/nouveau dossier",
+    children_hashes: [
+      FileHash [194, 8, 48, 131, 94],
+      FileHash [21, 67, 166, 247, 45],
+      FileHash [194, 8, 48, 131, 94]
+    ],
+    descendant_number: 3
+  }
+],
+FileHash [228, 82, 167, 158, 166]: [
+  DirectoryData {
+    path: "expérimentation/nouveau dossier/media/xxx",
+    children_hashes: [
+      FileHash [59, 29, 177, 129, 217],
+      FileHash [104, 168, 76, 214, 219]
+    ],
+    descendant_number: 2
+  },
+  DirectoryData {
+    path: "expérimentation/nouveau dossier/median/xxx",
+    children_hashes: [
+      FileHash [59, 29, 177, 129, 217],
+      FileHash [104, 168, 76, 214, 219]
+    ],
+    descendant_number: 2
+  },
+  DirectoryData {
+    path: "expérimentation/media/xxx",
+    children_hashes: [
+      FileHash [59, 29, 177, 129, 217],
+      FileHash [104, 168, 76, 214, 219]
+    ],
+    descendant_number: 2
+  },
+  DirectoryData {
+    path: "expérimentation/nouveau dossier2/median/xxx",
+    children_hashes: [
+      FileHash [59, 29, 177, 129, 217],
+      FileHash [104, 168, 76, 214, 219]
+    ],
+    descendant_number: 2
+  }
+]}
+
+
+
+Already found hashes {
+  FileHash [194, 8, 48, 131, 94]: 2,
+  FileHash [104, 168, 76, 214, 219]: 2,
+  FileHash [228, 82, 167, 158, 166]: 1,
+  FileHash [59, 29, 177, 129, 217]: 2,
+  FileHash [21, 67, 166, 247, 45]: 1
+}

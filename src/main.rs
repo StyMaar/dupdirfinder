@@ -1,0 +1,200 @@
+#[macro_use]
+extern crate clap;
+extern crate walkdir;
+extern crate blake2;
+
+use std::fs::File;
+use std::io::{self, Read, Seek, SeekFrom};
+use std::path::PathBuf;
+
+use std::collections::{HashMap};
+use blake2::{Blake2b, Digest};
+use walkdir::{WalkDir};
+
+use std::ops::Deref;
+
+use std::collections::hash_map::Entry::Occupied;
+
+use std::rc::Rc;
+use std::fmt;
+
+#[derive(PartialEq ,Eq, Hash, Clone)]
+struct FileHash(Vec<u8>);
+
+#[derive(Debug)]
+struct DirectoryData {
+    path: PathBuf,
+    children_hashes: Vec<FileHash>,
+    descendant_number: u64,
+}
+
+impl fmt::Debug for FileHash {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        let &FileHash(ref slice) = self;
+        write!(f, "FileHash {:?}", &slice[..5])
+    }
+}
+
+impl Deref for FileHash {
+    type Target = [u8];
+
+    fn deref(&self) -> &[u8] {
+        &self.0
+    }
+}
+
+impl DirectoryData {
+    fn hash(&self) -> FileHash {
+        let mut digest = Blake2b::default();
+        for hash in &self.children_hashes {
+            digest.input(&hash)
+        }
+        FileHash(digest.result().to_vec())
+    }
+}
+
+fn crawl_directory(root: PathBuf, map: &mut HashMap<FileHash, Vec<Rc<DirectoryData>>>) -> Rc<DirectoryData> {
+    let mut subdir_paths = Vec::new();
+    let mut files_paths = Vec::new();
+    for dir_entry_result in WalkDir::new(&root).follow_links(false).max_depth(1) {
+        match dir_entry_result {
+            Ok(dir_entry) => {
+                let path = dir_entry.path().to_path_buf();
+                if path == root { // Walkdir liste aussi la racine, il faut donc l'enlever pour éviter les récursions infinies
+                    continue;
+                }
+                if dir_entry.file_type().is_file() {
+                    files_paths.push(path);
+                } else if dir_entry.file_type().is_dir() {
+                    subdir_paths.push(path);
+                }
+            }
+            Err(e) => {
+                eprintln!("{}", e);
+            }
+        }
+    }
+
+    let mut dir_data = DirectoryData {
+        path: root,
+        children_hashes: Vec::new(),
+        descendant_number: files_paths.len() as u64,
+    };
+
+    for dir_path in subdir_paths {
+        let subdir_data = crawl_directory(dir_path, map);
+        let hash = subdir_data.hash();
+        dir_data.children_hashes.push(hash);
+        dir_data.descendant_number += 1 + subdir_data.descendant_number;
+    }
+
+    for file_path in files_paths {
+        let hash = hash_file_inner(&file_path).unwrap();
+        dir_data.children_hashes.push(hash);
+    }
+
+    let rc_dir_data = Rc::new(dir_data);
+    let map_entry = map.entry(rc_dir_data.hash()).or_insert(Vec::new());
+    map_entry.push(rc_dir_data.clone());
+    rc_dir_data
+}
+
+fn list_duplicates(map: HashMap<FileHash, Vec<Rc<DirectoryData>>>) -> Vec<Vec<Rc<DirectoryData>>> {
+    let mut result = vec![];
+
+    let mut already_found_hashes : HashMap<FileHash, usize> = HashMap::new();
+
+    let mut vect_of_key_and_entries  = map.into_iter().collect::<Vec<_>>();
+
+    vect_of_key_and_entries.sort_unstable_by(|a, b| {
+        let first_element_of_a = a.1.get(0).unwrap(); // the vectors are never empty
+        let first_element_of_b = b.1.get(0).unwrap(); // the vectors are never empty
+        first_element_of_b.descendant_number.cmp(&first_element_of_a.descendant_number)
+    });
+
+    for entry in vect_of_key_and_entries {
+        let (key, value) = entry;
+        // ignore les répertoires en un seul exemplaire
+        if value.len() == 1 {
+            continue;
+        }
+
+        let mut add_to_result = true;
+        // pour ceux dont le parent a déjà été marqué, on rajoute leurs enfants dans le set des entrées déjà traités
+        if let Occupied(entry) = already_found_hashes.entry(key) {
+            // si le dossier a été trouvé exactement autant de fois que dans les parents déjà traités, on ignore le dossier et on se contente juste de marquer les enfants comme étant déjà traités
+            if &(value.len()) == entry.get() {
+                add_to_result = false;
+            }
+        }
+
+        // pour ceux qui sont en plusieurs exemplaires et qui n'apparaissent pas dans le set,
+        // ou bien apparaissent dans le set en quantité inférieure à leur nombre d'occurence, ce qui veut dire qu'il existe un doublons en dehors des dossiers déjà traités
+        // on les ajoute à la liste des résultats, et on met tous leurs enfants dans le set
+        {
+            let first_dir_data = value.get(0).unwrap();
+            for children_hash in &(first_dir_data.children_hashes) {
+                let mut entry = already_found_hashes.entry(children_hash.clone());
+                let num = entry.or_insert(0);
+                *num += value.len();
+            }
+        }
+
+        if add_to_result {
+            result.push(value);
+        }
+
+    }
+
+    result
+}
+
+const BLOCKSIZE: usize = 4096;
+const GAPSIZE: i64 = 102400;
+
+fn hash_file_inner(path: &PathBuf) -> io::Result<FileHash> {
+    let mut buf = [0u8; BLOCKSIZE];
+    let mut fp = File::open(&path)?;
+    let mut digest = Blake2b::default();
+    // When we compare byte-by-byte, we don't need to hash the whole file.
+    // Instead, hash a block of 4kB, skipping 100kB.
+    loop {
+        match fp.read(&mut buf)? {
+            0 => break,
+            n => digest.input(&buf[..n]),
+        }
+        fp.seek(SeekFrom::Current(GAPSIZE))?;
+    }
+    Ok(FileHash(digest.result().to_vec()))
+}
+
+
+fn main() {
+    let args = clap_app!(fddf =>
+        (version: crate_version!())
+        (author: "Kevin Canévet, 2017")
+        (about: "A duplicate directory finder.")
+        (@arg root: +required +multiple "Root directory or directories to search.")
+    ).get_matches();
+
+    let roots = args.values_of("root").unwrap();
+
+    for root in roots {
+        println!("Checking {} directory", root);
+        println!("");
+
+        let mut map = HashMap::new();
+        let root = PathBuf::from(root);
+        crawl_directory(root, &mut map);
+        let duplicates = list_duplicates(map);
+
+        for duplicate in duplicates {
+            println!("Duplicat de {:?} répertoires", duplicate.len());
+            for dir in duplicate {
+                println!("{:?}", dir.path);
+            }
+            println!("");
+        }
+        println!("");
+    }
+}

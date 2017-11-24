@@ -91,9 +91,6 @@ fn crawl_directory(root: PathBuf, map: &mut HashMap<FileHash, Vec<Rc<DirectoryDa
         descendant_number: files_paths.len() as u64,
     };
 
-    let children_files_count = files_paths.len();
-    let children_dir_count = subdir_paths.len();
-
     for dir_path in subdir_paths {
         let subdir_data = crawl_directory(dir_path, map, inodes);
         let hash = subdir_data.hash();
@@ -108,9 +105,8 @@ fn crawl_directory(root: PathBuf, map: &mut HashMap<FileHash, Vec<Rc<DirectoryDa
 
     let rc_dir_data = Rc::new(dir_data);
     let map_entry = map.entry(rc_dir_data.hash()).or_insert(Vec::new());
-    if children_files_count != 0 || children_dir_count != 0 {
-        map_entry.push(rc_dir_data.clone());
-    }
+
+    map_entry.push(rc_dir_data.clone());
     rc_dir_data
 }
 
@@ -152,6 +148,9 @@ fn list_duplicates(map: HashMap<FileHash, Vec<Rc<DirectoryData>>>) -> Vec<Vec<Rc
                 let mut entry = already_found_hashes.entry(children_hash.clone());
                 let num = entry.or_insert(0);
                 *num += value.len();
+            }
+            if first_dir_data.descendant_number == 0 {
+                add_to_result = false;
             }
         }
 

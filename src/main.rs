@@ -4,8 +4,6 @@ extern crate walkdir;
 extern crate blake2;
 extern crate byteorder;
 
-use std::fs::File;
-use std::io::{self, Read, Seek, SeekFrom};
 use std::path::PathBuf;
 
 use std::collections::{HashMap, HashSet};
@@ -118,8 +116,8 @@ fn list_duplicates(map: HashMap<FileHash, Vec<Rc<DirectoryData>>>) -> Vec<Vec<Rc
     let mut vect_of_key_and_entries  = map.into_iter().collect::<Vec<_>>();
 
     vect_of_key_and_entries.sort_unstable_by(|a, b| {
-        let first_element_of_a = a.1.get(0).expect("empty vector that should not be empty at line 138"); // the vectors are never empty
-        let first_element_of_b = b.1.get(0).expect("empty vector that should not be empty at line 139"); // the vectors are never empty
+        let first_element_of_a = a.1.get(0).expect("empty vector that should not be empty at line 119"); // the vectors are never empty
+        let first_element_of_b = b.1.get(0).expect("empty vector that should not be empty at line 120"); // the vectors are never empty
         first_element_of_b.descendant_number.cmp(&first_element_of_a.descendant_number)
     });
 
@@ -143,7 +141,7 @@ fn list_duplicates(map: HashMap<FileHash, Vec<Rc<DirectoryData>>>) -> Vec<Vec<Rc
         // ou bien apparaissent dans le set en quantité inférieure à leur nombre d'occurence, ce qui veut dire qu'il existe un doublons en dehors des dossiers déjà traités
         // on les ajoute à la liste des résultats, et on met tous leurs enfants dans le set
         {
-            let first_dir_data = value.get(0).expect("empty vector that should not be empty at line 163");
+            let first_dir_data = value.get(0).expect("empty vector that should not be empty at line 144");
             for children_hash in &(first_dir_data.children_hashes) {
                 let mut entry = already_found_hashes.entry(children_hash.clone());
                 let num = entry.or_insert(0);
@@ -161,25 +159,6 @@ fn list_duplicates(map: HashMap<FileHash, Vec<Rc<DirectoryData>>>) -> Vec<Vec<Rc
     }
 
     result
-}
-
-const BLOCKSIZE: usize = 4096;
-const GAPSIZE: i64 = 102400;
-
-fn hash_file_inner(path: &PathBuf) -> io::Result<FileHash> {
-    let mut buf = [0u8; BLOCKSIZE];
-    let mut fp = File::open(&path)?;
-    let mut digest = Blake2b::default();
-    // When we compare byte-by-byte, we don't need to hash the whole file.
-    // Instead, hash a block of 4kB, skipping 100kB.
-    loop {
-        match fp.read(&mut buf)? {
-            0 => break,
-            n => digest.input(&buf[..n]),
-        }
-        fp.seek(SeekFrom::Current(GAPSIZE))?;
-    }
-    Ok(FileHash(digest.result().to_vec()))
 }
 
 fn hash_file_metadata(path: &PathBuf) -> FileHash {

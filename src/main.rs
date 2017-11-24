@@ -1,5 +1,9 @@
+#![feature(attr_literals)]
+extern crate structopt;
 #[macro_use]
-extern crate clap;
+extern crate structopt_derive;
+
+use structopt::StructOpt;
 extern crate walkdir;
 extern crate blake2;
 extern crate byteorder;
@@ -23,7 +27,6 @@ use std::ffi::OsStr;
 use std::os::unix::ffi::OsStrExt;
 
 use byteorder::{LittleEndian, WriteBytesExt};
-
 
 #[derive(PartialEq ,Eq, Hash, Clone)]
 struct FileHash(Vec<u8>);
@@ -193,28 +196,32 @@ fn check_inode(_: &mut HashSet<u64>, _: &DirEntry) -> bool {
     true
 }
 
-fn validate_byte_size(s: String) -> Result<(), String> {
-    unbytify::unbytify(&s).map(|_| ()).map_err(
+
+
+fn byte_size(s: &str) -> Result<u64, String> {
+    unbytify::unbytify(&s).map_err(
         |_| format!("{:?} is not a byte size", s))
 }
 
-fn main() {
-    let args = clap_app!(dupdirfinder =>
-        (version: crate_version!())
-        (author: "Kevin Canévet, 2017")
-        (about: "A duplicate directory finder.")
-        (@arg minsize: -m [MINSIZE] default_value("1") validator(validate_byte_size)
-         "Minimum file size to consider")
-        (@arg root: +required +multiple "Root directory or directories to search.")
-    ).get_matches();
+#[derive(StructOpt, Debug)]
+#[structopt(name = "dupdirfinder", about = "A duplicate directory finder.")]
+struct Opt {
+    #[structopt(short = "m", long = "minsize", help = "Minimum file size to consider", parse(try_from_str = "byte_size"), default_value = "0B")]
+    min_size: u64,
 
-    let roots = args.values_of("root").unwrap();
-    let minsize = unbytify::unbytify(args.value_of("minsize").unwrap()).unwrap();
+    /// Needed parameter, the first on the command line.
+    #[structopt(help = "Root directory or directories to search.", required = true)]
+    roots: Vec<String>,
+
+}
+
+fn main() {
+
+    let Opt {roots, min_size} = Opt::from_args();
 
     // We take care to avoid visiting a single inode twice,
     // which takes care of (false positive) hardlinks.
     let mut inodes = HashSet::default();
-
 
     for root in roots {
         println!("Checking {} directory", root);
@@ -223,7 +230,7 @@ fn main() {
         let mut map = HashMap::new();
         let root = PathBuf::from(root);
         crawl_directory(root, &mut map, &mut inodes);
-        let duplicates = list_duplicates(map, minsize);
+        let duplicates = list_duplicates(map, min_size);
 
         for duplicate in duplicates {
             println!("Duplicat de {:?} répertoires", duplicate.len());

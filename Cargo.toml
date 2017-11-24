@@ -8,8 +8,9 @@ description = "A duplicate directory finder."
 lto = true
 
 [dependencies]
-clap = "2.24.2"
 walkdir = "1.0.7"
 blake2 = "0.5.2"
 unbytify = "0.1.1"
 byteorder = "1"
+structopt = "0.1.0"
+structopt-derive = "0.1.0"

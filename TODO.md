@@ -12,4 +12,3 @@
 
 ## Features
 - add the ability to display the size gained (on a per-duplicate basis, or total)
-- ignore empty directories

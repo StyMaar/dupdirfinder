@@ -81,6 +81,9 @@ fn crawl_directory(root: PathBuf, map: &mut HashMap<FileHash, Vec<Rc<DirectoryDa
         descendant_number: files_paths.len() as u64,
     };
 
+    let children_files_count = files_paths.len();
+    let children_dir_count = subdir_paths.len();
+
     for dir_path in subdir_paths {
         let subdir_data = crawl_directory(dir_path, map);
         let hash = subdir_data.hash();
@@ -95,7 +98,9 @@ fn crawl_directory(root: PathBuf, map: &mut HashMap<FileHash, Vec<Rc<DirectoryDa
 
     let rc_dir_data = Rc::new(dir_data);
     let map_entry = map.entry(rc_dir_data.hash()).or_insert(Vec::new());
-    map_entry.push(rc_dir_data.clone());
+    if children_files_count != 0 || children_dir_count != 0 {
+        map_entry.push(rc_dir_data.clone());
+    }
     rc_dir_data
 }
 
